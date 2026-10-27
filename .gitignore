@@ -1,0 +1,9 @@
+/target
+*.db
+*.db-wal
+*.db-shm
+/data
+.env*
+!.env.example
+*.whl
+.devcontainer/
