@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo test --locked
+
+  docker:
+    # Catches a broken Dockerfile before a release tag does, and a broken image: a
+    # builder/runtime glibc mismatch compiles fine and fails at startup.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: vedette:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: The binary starts on the distroless runtime
+        run: docker run --rm vedette:ci --version
+      - name: The baked-in example config parses
+        run: docker run --rm vedette:ci watch validate
+      - name: The health check fails on an empty database
+        run: |
+          if docker run --rm vedette:ci healthcheck; then
+            echo "::error::healthcheck passed with no sync recorded"; exit 1
+          fi
+      - name: Both compose stacks validate
+        run: |
+          cp .env.example .env
+          docker compose -f docker-compose.yml config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml config --quiet

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ heading }}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:24px 12px;">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:680px;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #e3e5e8;">
+  <tr>
+    <td style="padding:18px 22px;background:#1f2933;color:#ffffff;">
+      <div style="font-size:16px;font-weight:600;">{{ heading }}</div>
+      <div style="font-size:12px;color:#9aa5b1;padding-top:3px;">{{ alerts.len() }} alert(s)</div>
+    </td>
+  </tr>
+{%- for a in alerts %}
+  <tr>
+    <td style="padding:18px 22px;border-top:1px solid #e3e5e8;">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#616e7c;padding-bottom:6px;">
+        <span style="background:{{ a.event.kind.as_str()|event_colour }};color:#fff;border-radius:3px;padding:2px 7px;font-weight:600;">{{ a.event.kind.as_str() }}</span>
+        {%- if a.urgent %}
+        <span style="background:#b91c1c;color:#fff;border-radius:3px;padding:2px 7px;font-weight:600;margin-left:4px;">urgent</span>
+        {%- endif %}
+        <span style="margin-left:6px;">watch: {{ a.watch }}</span>
+      </div>
+      <div style="font-size:17px;font-weight:600;">
+        <a href="{{ a.url }}" style="color:#1f6feb;text-decoration:none;">{{ a.cve_id }}</a>
+        {%- if let Some(sev) = a.severity %}
+        <span style="font-size:12px;font-weight:600;color:#fff;background:{{ sev|severity_colour }};border-radius:3px;padding:2px 7px;margin-left:6px;">{{ sev }}</span>
+        {%- endif %}
+      </div>
+      <div style="font-size:13px;color:#323f4b;padding-top:7px;">{{ a.event.detail }}</div>
+      {%- if a.in_kev %}
+      <div style="font-size:13px;color:#8a2a0b;background:#fff4ed;border-left:3px solid #d9480f;padding:8px 11px;margin-top:10px;border-radius:0 4px 4px 0;">
+        <strong>In the CISA KEV catalog</strong> — actively exploited.
+        {%- if let Some(d) = a.kev_due_date %} Remediation due {{ d }}.{% endif %}
+        {%- if a.kev_ransomware %} Known use in ransomware campaigns.{% endif %}
+      </div>
+      {%- endif %}
+      {%- if let Some(d) = a.description %}
+      <div style="font-size:13px;color:#52606d;padding-top:9px;line-height:1.45;">{{ d|truncate_chars(400) }}</div>
+      {%- endif %}
+      <div style="font-size:11px;color:#7b8794;padding-top:9px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">
+        {{ a.match_kind }} / {{ a.confidence }} — {{ a.evidence }}
+      </div>
+    </td>
+  </tr>
+{%- endfor %}
+  <tr>
+    <td style="padding:14px 22px;background:#f8f9fa;border-top:1px solid #e3e5e8;font-size:11px;color:#7b8794;">
+      Sent by vedette. A <strong>review</strong> match is a text hit and may be a false
+      positive; a <strong>high</strong> match comes from NVD CPE data or the KEV catalog.
+    </td>
+  </tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>

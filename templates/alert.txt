@@ -1,0 +1,19 @@
+{{ heading }}
+{{ rule }}
+{%- for a in alerts %}
+
+[{{ a.event.kind.as_str() }}]{% if a.urgent %} ** URGENT **{% endif %} {{ a.cve_id }}{% if let Some(sev) = a.severity %} — {{ sev }}{% endif %}
+  watch     : {{ a.watch }}
+  reason    : {{ a.event.detail }}
+  evidence  : {{ a.match_kind }} / {{ a.confidence }} — {{ a.evidence }}
+{%- if a.in_kev %}
+  KEV       : actively exploited{% if let Some(d) = a.kev_due_date %}, remediation due {{ d }}{% endif %}{% if a.kev_ransomware %}, used in ransomware campaigns{% endif %}
+{%- endif %}
+{%- if let Some(d) = a.description %}
+  summary   : {{ d|truncate_chars(400) }}
+{%- endif %}
+  {{ a.url }}
+{%- endfor %}
+
+{{ rule }}
+{{ alerts.len() }} alert(s) from vedette. Reply is not monitored.

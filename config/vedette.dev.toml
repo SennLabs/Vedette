@@ -1,0 +1,35 @@
+# DEVELOPMENT configuration, selected by docker-compose.dev.yml.
+#
+# Only what differs from the built-in defaults is set here; every other setting is the
+# same as config/vedette.toml documents. The channels point at the local sinks the dev
+# stack starts, so nothing here can reach a real inbox or device:
+#   mailpit  http://localhost:8025
+#   ntfy     http://localhost:8080, topic vedette-kev
+#   file     data/dev/alerts.log on the host
+
+[nvd]
+# Short, so a fresh dev database is usable within minutes rather than hours.
+backfill_from = "7d"
+
+[[channel]]
+name = "email"
+kind = "smtp"
+host = "mailpit"
+port = 1025
+tls  = "none"
+from = "vedette dev <alerts@example.com>"
+to   = ["security@example.com"]
+batch_window = "1m"
+
+[[channel]]
+name = "push"
+kind = "ntfy"
+base_url = "http://ntfy"
+topic = "vedette-kev"
+batch_window = "1m"
+
+[[channel]]
+name = "log"
+kind = "file"
+path = "data/alerts.log"
+batch_window = "0s"

@@ -1,0 +1,42 @@
+# Production deployment of vedette from the GitHub Container Registry.
+# Walkthrough: docs/getting-started.md. Day-to-day: docs/operations.md.
+# For local development with a mail sink and push server, layer docker-compose.dev.yml
+# on top (docs/development.md).
+
+name: vedette
+
+services:
+  vedette:
+    # Pinned to a minor version: before 1.0, a minor release may change the config
+    # format, so an upgrade should be a deliberate edit of VEDETTE_VERSION in .env.
+    image: ghcr.io/sennlabs/vedette:${VEDETTE_VERSION:-0.1}
+    restart: unless-stopped
+    # Created from .env.example. Holds the image tag, the NVD API key and channel secrets.
+    env_file: .env
+    environment:
+      # VACUUM writes a database-sized temp file; keep it on the volume, not in RAM.
+      SQLITE_TMPDIR: /app/data
+    volumes:
+      - vedette-data:/app/data
+      # Read-only: the daemon re-reads watches.toml on its own, and has no reason to
+      # write its configuration.
+      - ./config:/app/config:ro
+    # The container holds nothing but the binary; the database is the only writable path.
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    # Time to finish an in-flight send and close SQLite cleanly on SIGTERM.
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  vedette-data:

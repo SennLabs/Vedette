@@ -1,0 +1,69 @@
+# DEVELOPMENT ONLY. Layered on top of docker-compose.yml:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+#
+# Builds vedette from this checkout instead of pulling the release image, switches it to
+# config/vedette.dev.toml, and adds local sinks so delivery can be checked without real
+# infrastructure:
+#   Mailpit  http://localhost:8025   catches every email; nothing leaves the host
+#   ntfy     http://localhost:8080   push notifications, topic `vedette-kev`
+#   file     ./data/dev/alerts.log   every alert, as text
+
+# A separate project name, so bringing the production definition up on the same checkout
+# does not recreate the dev daemon or orphan the sinks.
+name: vedette-dev
+
+services:
+  vedette:
+    build:
+      context: .
+      args:
+        VERSION: dev
+    image: vedette:dev
+    environment:
+      VEDETTE_CONFIG: /app/config/vedette.dev.toml
+      VEDETTE_LOG: ${VEDETTE_LOG:-info}
+    volumes:
+      # A host directory rather than the named volume, so the file channel's output and
+      # the database can be inspected directly. dev-init creates it and hands it to the
+      # daemon's uid first; without that, Docker creates a missing bind source as root
+      # and the daemon fails with "unable to open database file".
+      - ./data/dev:/app/data
+    # Run as the invoking user so ./data/dev stays writable and owned by you. If your uid
+    # is not 1000: VEDETTE_UID=$(id -u) VEDETTE_GID=$(id -g) docker compose ...
+    # (Shells reserve UID and GID themselves, so those names cannot be used here.)
+    user: "${VEDETTE_UID:-1000}:${VEDETTE_GID:-1000}"
+    depends_on:
+      dev-init:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_started
+      ntfy:
+        condition: service_started
+
+  # Runs once before the daemon: makes sure the bind-mounted data directory exists and is
+  # owned by the uid the daemon runs as, whatever state the host directory was in.
+  dev-init:
+    image: alpine:3.21
+    user: "0:0"
+    command: ["sh", "-c", "mkdir -p /app/data && chown ${VEDETTE_UID:-1000}:${VEDETTE_GID:-1000} /app/data"]
+    volumes:
+      - ./data/dev:/app/data
+
+  mailpit:
+    image: axllent/mailpit:v1.32
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+  ntfy:
+    image: binwiederhier/ntfy:v2.34
+    restart: unless-stopped
+    command: serve
+    ports:
+      - "127.0.0.1:8080:80"
+    environment:
+      NTFY_BASE_URL: http://localhost:8080

@@ -1,0 +1,106 @@
+# vedette daemon configuration.
+#
+# Reference: docs/configuration.md
+#
+# This file is safe to commit: it holds no secrets. Every secret field accepts
+#   "${ENV_VAR}"                 interpolated from the environment at startup
+#   { env = "ENV_VAR" }          read from one environment variable
+#   { file = "/run/secrets/x" }  read from a file (Docker/Kubernetes secrets)
+#
+# Any setting can also be overridden from the environment with a VEDETTE_ prefix and
+# `__` between levels, e.g. VEDETTE_NVD__POLL_INTERVAL=15m or VEDETTE_KEV__URL=...
+#
+# Relative paths resolve against the working directory: /app in the container, the
+# repository root under `cargo run`.
+
+database_path = "data/vedette.db"
+watch_file    = "config/watches.toml"
+
+# `vedette healthcheck` (and so the container health status) fails when a source has not
+# synced successfully within this long.
+stale_after = "6h"
+
+[nvd]
+base_url = "https://services.nvd.nist.gov/rest/json"
+# The API key is read from the NVD_API_KEY environment variable. Without one, requests
+# are limited to NVD's public rate (5 per 30s) and syncing is roughly ten times slower.
+# Request a key at https://nvd.nist.gov/developers/request-an-api-key
+poll_interval = "30m"
+# How far back the first sync reaches, by NVD's lastModified date: a lookback such as
+# "90d", or a fixed "YYYY-MM-DD". The first sync records matches without alerting; alerts
+# start once it has caught up. Pull older history later with `vedette backfill --from`.
+backfill_from = "90d"
+rate_limit    = 45      # requests per rate_window; NVD allows 50/30s with a key
+rate_window   = "30s"
+page_size     = 500     # CVEs per request (NVD max 2000; smaller pages retry cheaply)
+read_timeout  = "90s"
+overlap       = "10m"   # re-fetch this far behind the watermark (NVD is eventually consistent)
+
+[kev]
+# If www.cisa.gov is unreachable from your network, CISA publishes the same catalog on
+# GitHub (it can lag by a few days). Point at it with:
+#   VEDETTE_KEV__URL=https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json
+url           = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+poll_interval = "1h"
+
+[notify]
+max_attempts = 6        # delivery attempts before a notification is marked failed
+retry_base   = "30s"    # first retry delay; doubles each attempt, capped at one hour
+max_batch    = 50       # alerts per digest before it is split
+dry_run      = false    # log instead of sending, on every channel
+
+# ------------------------------------------------------------------ channels
+#
+# Every watch notifies every enabled channel unless it lists `channels` explicitly.
+# Kinds: smtp, webhook, ntfy, gotify, telegram, file. See docs/configuration.md#channels.
+# Check a channel end to end with: vedette notify test --channel <name>
+
+[[channel]]
+name = "email"
+kind = "smtp"
+# enabled = false                # keep the block but send nothing through it
+host = "smtp.example.com"        # EDIT: your mail relay
+port = 587
+tls  = "starttls"                # "starttls" (587) | "implicit" (465) | "none" (local sinks only)
+username = "alerts@example.com"  # EDIT, or remove both lines for an unauthenticated relay
+password = { env = "SMTP_PASSWORD" }
+from = "vedette <alerts@example.com>"   # EDIT
+to   = ["security@example.com"]         # EDIT
+batch_window = "15m"             # hold alerts this long so one poll cycle is one email
+urgent_immediate = true          # KEV additions, exploit references and CRITICAL matches skip batch_window
+
+# [[channel]]
+# name = "push"
+# kind = "ntfy"
+# base_url = "https://ntfy.sh"
+# topic = "your-unguessable-topic"
+# token = { env = "NTFY_TOKEN" }
+# batch_window = "5m"
+
+# [[channel]]
+# name = "telegram"
+# kind = "telegram"
+# chat_id = "-1001234567890"
+# token = { env = "TELEGRAM_BOT_TOKEN" }
+
+# [[channel]]
+# name = "siem"
+# kind = "webhook"
+# url = "https://siem.example.com/hooks/vedette"
+# hmac_secret = { env = "WEBHOOK_HMAC" }   # signs the body as X-Vedette-Signature
+# [channel.headers]
+# X-Source = "vedette"
+
+# [[channel]]
+# name = "gotify"
+# kind = "gotify"
+# base_url = "https://gotify.example.com"
+# token = { env = "GOTIFY_TOKEN" }
+
+# Development only: appends every alert to a file. Nothing reads it.
+# [[channel]]
+# name = "log"
+# kind = "file"
+# path = "data/alerts.log"
+# format = "text"                # or "jsonl"
+# batch_window = "0s"

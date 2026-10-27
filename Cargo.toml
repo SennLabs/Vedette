@@ -1,0 +1,45 @@
+[package]
+name = "vedette"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.90"
+description = "Watches NVD and the CISA KEV catalog, notifies on CVEs matching declared product watches"
+license = "MIT"
+
+[dependencies]
+tokio = { version = "1.54", features = ["rt-multi-thread", "macros", "signal", "time", "sync"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "query", "gzip", "charset", "http2", "rustls"] }
+rusqlite = { version = "0.41", default-features = false, features = ["bundled", "backup", "cache"] }
+lettre = { version = "0.11", default-features = false, features = [
+    "builder", "smtp-transport", "pool", "hostname", "tokio1", "tokio1-rustls", "ring", "webpki-roots",
+] }
+clap = { version = "4.6", features = ["derive", "env"] }
+figment = { version = "0.10", features = ["toml", "env"] }
+governor = "0.10"
+askama = "0.16"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+jiff = { version = "0.2", features = ["serde"] }
+regex = "1"
+secrecy = "0.10"
+humantime-serde = "1.1"
+toml = "0.9"
+humantime = "2"
+sha2 = "0.10"
+hex = "0.4"
+hmac = "0.12"
+rand = "0.9"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1"
+thiserror = "2"
+async-trait = "0.1"
+
+[dev-dependencies]
+wiremock = "0.6"
+tempfile = "3"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

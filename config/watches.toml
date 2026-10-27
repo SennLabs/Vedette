@@ -1,0 +1,59 @@
+# Example watch list. Replace the two entries below with the software you run.
+#
+# Workflow:
+#   vedette watch suggest <product>   finds NVD's vendor:product names (they are not unique)
+#   vedette watch validate            checks the file and every channel it names
+#   vedette watch test <name>         dry-runs a watch against stored CVEs; sends nothing
+#
+# This file is re-read whenever there are CVEs to match and on SIGHUP; no restart needed.
+# Format, matching rules and tuning advice: docs/watches.md.
+#
+# Each watch matches three ways, strongest first: `cpe` selectors against NVD's product
+# data (confidence "high"), the KEV catalog's own product text ("high"), and `keywords`
+# against the description ("review"). Keywords matter because most CVEs carry no product
+# data for their first days. `none` terms veto a CVE outright; use them for recurring noise.
+
+[[watch]]
+name         = "nginx"
+severity_min = "medium"
+# Notifies every enabled channel. To route a watch, name channels from vedette.toml:
+# channels = ["email"]
+
+# F5 is the current vendor and ships nginx under several distinct product names; a watch
+# on `nginx` alone silently misses the others. All of these came from `watch suggest nginx`.
+cpe = [
+  "f5:nginx",
+  "f5:nginx_open_source",
+  "f5:nginx_plus",
+  "f5:nginx_ingress_controller",
+  "f5:nginx_gateway_fabric",
+  "nginx:nginx",
+  "igor_sysoev:nginx",              # historic vendor, still attached to older CVEs
+]
+
+[watch.keywords]
+regex  = true
+# Word-bounded: a bare `njs` substring matched a URL in an unrelated CVE's references.
+any    = ['\bnginx\b', '\bnjs\b']
+# Products that merely mention nginx in their description; each was a real false positive.
+none   = ['nginx proxy manager', 'modsecurity', 'frigate', 'cockpit cms']
+fields = ["description", "cpe", "kev_product"]
+
+[[watch]]
+name         = "wordpress"
+severity_min = "high"
+
+# Core. A CPE hit here is high confidence and version-aware; a KEV hit on
+# "WordPress / Core" also lands as high and ignores the severity floor.
+cpe = ["wordpress:wordpress"]
+
+[watch.keywords]
+regex  = true
+# A tight phrase on purpose: a bare '\bwordpress\b' also matches every plugin and theme
+# CVE, which is dozens per month. To watch the plugin ecosystem too, use '\bwordpress\b'
+# and run `vedette watch test wordpress` to see what that costs. docs/watches.md explains
+# why `none = ['plugin']` cannot narrow it.
+any    = ['wordpress core', '\bwp-admin\b']
+# cPanel ships a product literally named "WP2 (WordPress Squared)" that appears in KEV.
+none   = ['cpanel']
+fields = ["description", "cpe", "kev_product"]
