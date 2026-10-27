@@ -8,7 +8,7 @@
 # "GLIBC_2.xx not found". Bump both tags together (trixie = Debian 13).
 # The minor is pinned to Cargo.toml's rust-version so builds are reproducible; Dependabot
 # proposes the bump.
-FROM rust:1.90-slim-trixie AS chef
+FROM rust:1.98-slim-trixie AS chef
 WORKDIR /build
 RUN cargo install cargo-chef --locked
 
