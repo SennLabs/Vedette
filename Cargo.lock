@@ -2667,7 +2667,7 @@ dependencies = [
  "humantime-serde",
  "jiff",
  "lettre",
- "rand 0.9.5",
+ "rand 0.10.3",
  "regex",
  "reqwest",
  "rusqlite",
